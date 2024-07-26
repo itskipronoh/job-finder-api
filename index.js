@@ -1,12 +1,43 @@
 const express = require('express')
 const mongoose = require('mongoose')
 const Job = require('./models/JobModel');
+const User = require('./models/UserModel');
 const app = express()
-
+const connectDB = require("./config/connect");
+require('dotenv').config();
+const bcrypt = require('bcrypt');
+const router = express.Router();
+const jwt = require('jsonwebtoken');
 app.use(express.json())
 
 
 //routes
+// Register a new user
+router.post('/register', async (req, res) => {
+    try {
+        const { username, email, password } = req.body;
+        const user = await User.create({ username, email, password });
+        res.status(201).json(user);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+
+// Login a user
+router.post('/login', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        const user = await User.findOne({ email });
+        if (user && (await user.matchPassword(password))) {
+            const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '30d' });
+            res.json({ token });
+        } else {
+            res.status(401).json({ message: 'Invalid email or password' });
+        }
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
 
 app.get('/', (req, res) => {
     res.send('Hello this is my jobfinder API')
@@ -71,14 +102,15 @@ app.delete('/Jobs/:id', async(req, res) => {
     }
 });
 
-mongoose.set("strictQuery", false)
-mongoose.
-connect('mongodb+srv://user:admin@cluster0.iz8twkd.mongodb.net/job-finder-api?retryWrites=true&w=majority&appName=Cluster0')
-.then(() => {
-    console.log('connected to MongoDB')
-    app.listen(3000, ()=> {
-        console.log(`Job Finder API app is running on port 3000`)
-    }); 
-}).catch((error) => {
-    console.log(error)
-})
+mongoose.set('strictQuery', false);
+mongoose
+    .connect (process.env.MONGODB_URI)
+    .then(() => {
+        console.log('connected to MongoDB');
+        app.listen(3000, () => {
+            console.log('Job Finder API app is running on port 3000');
+        });
+    })
+    .catch((error) => {
+        console.log(error);
+    });
